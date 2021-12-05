@@ -1,0 +1,3 @@
+adapter/linuxcnc.o
+lib/*
+!lib/.gitkeep
