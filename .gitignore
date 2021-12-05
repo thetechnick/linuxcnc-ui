@@ -1,3 +1,5 @@
 adapter/linuxcnc.o
 lib/*
 !lib/.gitkeep
+.cache
+.deps
