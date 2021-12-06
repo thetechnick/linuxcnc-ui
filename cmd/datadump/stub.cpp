@@ -1,3 +1,5 @@
+// API stub so the IDE and go compiler dont complain,
+// about the missing build dependencies.
 #include "linuxcnc.hh"
 #include <stdlib.h>
 
