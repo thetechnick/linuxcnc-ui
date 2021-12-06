@@ -1,0 +1,10 @@
+{
+  "protoc": {
+    "compile_on_save": false,
+    "options": [
+      "--proto_path=${workspaceRoot}/.deps/include",
+      "--proto_path=${workspaceRoot}/api/v1"
+    ],
+    "path": "${workspaceRoot}/.deps/bin/protoc"
+  }
+}

@@ -1,0 +1,16 @@
+syntax = "proto3";
+package linuxcnc.api.v1;
+option go_package = "thetechnick.ninja/linuxcnc/api/v1";
+
+import "google/api/annotations.proto";
+
+message HealthRequest {}
+message HealthResponse {}
+
+service HealthService {
+  rpc Health(HealthRequest) returns (HealthResponse) {
+    option (google.api.http) = {
+      get: "/health"
+    };
+  };
+}

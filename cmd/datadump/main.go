@@ -3,7 +3,6 @@ package main
 // #include <stdlib.h>
 // #include "linuxcnc.hh"
 // #cgo CPPFLAGS: -I${SRCDIR}/../../adapter
-// #cgo LDFLAGS: -L${SRCDIR}/../../lib -llinuxcncadapter
 import "C"
 
 import (

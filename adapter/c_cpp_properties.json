@@ -1,27 +1,27 @@
 {
-  "env": {
-    "myDefaultIncludePath": [
-      "${workspaceFolder}",
-      "${workspaceFolder}/include"
-    ],
-    "myCompilerPath": "/usr/local/bin/gcc-7"
-  },
   "configurations": [
     {
-      "name": "Linux",
-      "intelliSenseMode": "clang-x64",
-      "includePath": [
-        "${myDefaultIncludePath}"
-      ],
-      "compilerPath": "/usr/bin/clang",
-      "cStandard": "c11",
-      "cppStandard": "c++17",
       "browse": {
         "path": [
           "${workspaceFolder}"
         ]
-      }
+      },
+      "cStandard": "c11",
+      "compilerPath": "/usr/bin/clang",
+      "cppStandard": "c++17",
+      "includePath": [
+        "${myDefaultIncludePath}"
+      ],
+      "intelliSenseMode": "clang-x64",
+      "name": "Linux"
     }
   ],
+  "env": {
+    "myCompilerPath": "/usr/local/bin/gcc-7",
+    "myDefaultIncludePath": [
+      "${workspaceFolder}",
+      "${workspaceFolder}/include"
+    ]
+  },
   "version": 4
 }

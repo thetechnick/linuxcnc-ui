@@ -3,3 +3,6 @@ lib/*
 !lib/.gitkeep
 .cache
 .deps
+cert.pem
+key.pem
+/bin

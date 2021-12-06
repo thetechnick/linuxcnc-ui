@@ -18,6 +18,8 @@ const (
 	protocGenGoVersion          = "1.25.0"
 	protocGenGoGRPCVersion      = "1.0.1"
 	protocGenGRPCGatewayVersion = "2.1.0"
+	goimportsVersion            = "0.1.5"
+	golangCILintVersion         = "1.43.0"
 )
 
 var (
@@ -34,6 +36,10 @@ func init() {
 	depsIncludeDir = depsDir + "/include"
 }
 
+func Generate() {
+	mg.Deps(Build.Proto)
+}
+
 type Dependency mg.Namespace
 
 func (Dependency) All() {
@@ -43,6 +49,8 @@ func (Dependency) All() {
 		mg.F(Dependency.GoInstall, "google.golang.org/protobuf/cmd/protoc-gen-go@v"+protocGenGoVersion),
 		mg.F(Dependency.GoInstall, "google.golang.org/grpc/cmd/protoc-gen-go-grpc@v"+protocGenGoGRPCVersion),
 		mg.F(Dependency.GoInstall, "github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@v"+protocGenGRPCGatewayVersion),
+		mg.F(Dependency.GoInstall, "golang.org/x/tools/cmd/goimports@v"+goimportsVersion),
+		mg.F(Dependency.GoInstall, "github.com/golangci/golangci-lint/cmd/golangci-lint@v"+golangCILintVersion),
 	)
 }
 
@@ -210,19 +218,34 @@ func (Build) Adapter() error {
 	return nil
 }
 
-func (Build) Datadump() error {
-	mg.Deps(Build.Adapter)
+func (Build) Datadump() {
+	mg.SerialDeps(
+		Build.Adapter,
+		mg.F(Build.Cmd, "datadump"),
+	)
+}
 
+func (Build) APIServer() {
+	mg.SerialDeps(
+		mg.F(Build.Cmd, "apiserver"),
+	)
+}
+
+func (Build) Cmd(cmd string) error {
 	wd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("get workdir: %w", err)
 	}
 
+	os.Rename("cmd/datadump/mock.cpp", ".cache/mock.ccp")
+	defer os.Rename(".cache/mock.ccp", "cmd/datadump/mock.cpp")
+
 	env := map[string]string{
 		"LD_LIBRARY_PATH": os.Getenv("LD_LIBRARY_PATH") + ":" + wd + "/lib",
+		"CGO_LDFLAGS":     "-Llib -llinuxcncadapter",
 	}
-	if err := sh.RunWithV(env, "go", "build", "-v", "-o", "bin/datadump", "./cmd/datadump"); err != nil {
-		return fmt.Errorf("compiling cmd/datadump: %w", err)
+	if err := sh.RunWithV(env, "go", "build", "-v", "-o", "bin/"+cmd, "./cmd/"+cmd+"/main.go"); err != nil {
+		return fmt.Errorf("compiling cmd/%s: %w", cmd, err)
 	}
 	return nil
 }
@@ -240,7 +263,7 @@ func (Run) Datadump() error {
 	env := map[string]string{
 		"LD_LIBRARY_PATH": os.Getenv("LD_LIBRARY_PATH") + ":" + wd + "/lib",
 	}
-	if err := sh.RunWithV(env, "go", "run", "./cmd/datadump"); err != nil {
+	if err := sh.RunWithV(env, "./bin/datadump"); err != nil {
 		return fmt.Errorf("running cmd/datadump: %w", err)
 	}
 	return nil

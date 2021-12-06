@@ -1,0 +1,104 @@
+syntax = "proto3";
+package linuxcnc.api.v1;
+option go_package = "thetechnick.ninja/linuxcnc/api/v1";
+
+import "google/api/annotations.proto";
+
+message Status {
+  bool estopEnabled = 1;
+  bool inPosition = 2;
+  bool motionPaused = 3;
+
+  CoolantStatus coolant = 4;
+  repeated SpindleStatus spindles = 5;
+  repeated JointStatus joints = 6;
+}
+
+message CoolantStatus {
+  // Mist coolant enabled.
+  bool mist = 1;
+  // Flood coolant enabled.
+  bool flood = 2;
+}
+
+message SpindleStatus {
+  // Spindle break enabled.
+  bool break = 1;
+  // Spindle speed in rpm.
+  // >0 clockwise
+  // <0 counterclockwise
+  double speed = 2;
+  // Spindle enabled.
+  bool enabled = 3;
+  // Spindle override scale.
+  double overrideScale = 4;
+  // Spindle override enabled.
+  bool overrideEnabled = 5;
+}
+
+message JointStatus {
+  // Type of joint configuration parameter, reflects [JOINT_n]TYPE.
+  // Values: Linear, Angular
+  // See Joint ini configuration for details.
+  string type = 1;
+
+  // Joint homing status.
+  // Values: Unkown, Homing, Homed.
+  string homingPhase = 2;
+
+  // Joint in position.
+  bool inPosition = 3;
+  // Current input position.
+  double inputPosition = 4;
+  // Commanded output position.
+  double outputPosition = 5;
+  // Current joint velocity.
+  double velocity = 6;
+
+  // Joint limits configuration and status.
+  JointLimits limits = 7;
+}
+
+message JointLimits {
+  // Limit override enabled.
+  bool overrideEnabled = 1;
+
+  // Maximum hard limit exceeded.
+  bool hardMaxExceeded = 2;
+  // Maximum soft limit exceeded.
+  bool softMaxExceeded = 3;
+  // Maximum soft limit for joint motion.
+  // Reflects [JOINT_n]MAX_LIMIT.
+  double maxPosition = 4;
+
+  // Minimum hard limit exceeded.
+  bool hardMinExceeded = 5;
+  // Minimum soft limit exceeded.
+  bool softMinExceeded = 6;
+  // Minimum soft limit for joint motion.
+  // Reflects [JOINT_n]MIN_LIMIT.
+  double minPosition = 7;
+}
+
+message StatusGetRequest {}
+message StatusGetResponse {
+  Status status = 1;
+}
+
+message StatusWatchRequest {}
+message StatusWatchResponse {
+  Status status = 1;
+}
+
+service StatusService {
+  rpc Get(StatusGetRequest) returns (StatusGetResponse) {
+    option (google.api.http) = {
+      get: "/status"
+    };
+  };
+  rpc Watch(StatusWatchRequest) returns (stream StatusWatchResponse) {
+    option (google.api.http) = {
+      get: "/status/watch"
+    };
+  };
+}
