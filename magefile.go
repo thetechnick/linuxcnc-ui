@@ -8,9 +8,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
+	"github.com/magefile/mage/target"
 )
 
 const (
@@ -46,11 +48,11 @@ func (Dependency) All() {
 	mg.Deps(
 		Dependency.Protoc,
 		Dependency.GRPCGatewayIncludes,
-		mg.F(Dependency.GoInstall, "google.golang.org/protobuf/cmd/protoc-gen-go@v"+protocGenGoVersion),
-		mg.F(Dependency.GoInstall, "google.golang.org/grpc/cmd/protoc-gen-go-grpc@v"+protocGenGoGRPCVersion),
-		mg.F(Dependency.GoInstall, "github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@v"+protocGenGRPCGatewayVersion),
-		mg.F(Dependency.GoInstall, "golang.org/x/tools/cmd/goimports@v"+goimportsVersion),
-		mg.F(Dependency.GoInstall, "github.com/golangci/golangci-lint/cmd/golangci-lint@v"+golangCILintVersion),
+		mg.F(Dependency.GoInstall, "protoc-gen-go", "google.golang.org/protobuf/cmd/protoc-gen-go", protocGenGoVersion),
+		mg.F(Dependency.GoInstall, "protoc-gen-go-grpc", "google.golang.org/grpc/cmd/protoc-gen-go-grpc", protocGenGoGRPCVersion),
+		mg.F(Dependency.GoInstall, "protoc-gen-grpc-gateway", "github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway", protocGenGRPCGatewayVersion),
+		mg.F(Dependency.GoInstall, "goimports", "golang.org/x/tools/cmd/goimports", goimportsVersion),
+		mg.F(Dependency.GoInstall, "golangci-lint", "github.com/golangci/golangci-lint/cmd/golangci-lint", golangCILintVersion),
 	)
 }
 
@@ -71,6 +73,14 @@ func (Dependency) Dirs() error {
 func (Dependency) Protoc() error {
 	mg.Deps(Dependency.Dirs)
 
+	needsRebuild, err := checkBinDependencyNeedsRebuild("protoc", protocVersion)
+	if err != nil {
+		return err
+	}
+	if !needsRebuild {
+		return nil
+	}
+
 	// Tempdir
 	tempDir, err := os.MkdirTemp(".cache", "")
 	if err != nil {
@@ -83,7 +93,6 @@ func (Dependency) Protoc() error {
 		"curl", "-L", "--fail",
 		"-o", tempDir+"/protoc.zip",
 		fmt.Sprintf(
-			// https://github.com/protocolbuffers/protobuf/releases/download/v3.19.1/protoc-3.19.1-linux-x86_64.zip
 			"https://github.com/protocolbuffers/protobuf/releases/download/v%s/protoc-%s-linux-x86_64.zip",
 			protocVersion, protocVersion,
 		),
@@ -106,11 +115,34 @@ func (Dependency) Protoc() error {
 	if err := os.Rename(tempDir+"/bin/protoc", depsDir+"/bin/protoc"); err != nil {
 		return fmt.Errorf("move protoc: %w", err)
 	}
+
+	// Bump timestamp
+	currentTime := time.Now().Local()
+	err = os.Chtimes(depsDir+"/bin/protoc", currentTime, currentTime)
+	if err != nil {
+		return fmt.Errorf("bump change date: %w", err)
+	}
+
 	return nil
 }
 
 func (Dependency) GRPCGatewayIncludes() error {
 	mg.Deps(Dependency.Dirs)
+
+	// Remember version
+	versionFile := depsDir + "/versions/grpc-gateway-includes/v" + protocGenGRPCGatewayVersion
+	if err := ensureFile(versionFile); err != nil {
+		return fmt.Errorf("ensure file: %w", err)
+	}
+
+	// Check if rebuild is needed
+	rebuild, err := target.Path(".deps/include/google/api", versionFile)
+	if err != nil {
+		return fmt.Errorf("check: %w", err)
+	}
+	if !rebuild {
+		return nil
+	}
 
 	// Tempdir
 	tempDir, err := os.MkdirTemp(".cache", "")
@@ -144,17 +176,65 @@ func (Dependency) GRPCGatewayIncludes() error {
 	return nil
 }
 
-func (Dependency) GoInstall(pack string) error {
+func (Dependency) GoInstall(bin, packageURl, version string) error {
 	mg.Deps(Dependency.Dirs)
 
+	needsRebuild, err := checkBinDependencyNeedsRebuild(bin, version)
+	if err != nil {
+		return err
+	}
+	if !needsRebuild {
+		return nil
+	}
+
+	url := packageURl + "@v" + version
 	if err := sh.RunWithV(map[string]string{
 		"GOBIN": depsBinDir,
 	}, mg.GoCmd(),
-		"install", pack,
+		"install", url,
 	); err != nil {
-		return fmt.Errorf("install %s: %w", pack, err)
+		return fmt.Errorf("install %s: %w", url, err)
 	}
 	return nil
+}
+
+// ensure a file and it's file path exist.
+func ensureFile(file string) error {
+	dir := filepath.Dir(file)
+	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+		return fmt.Errorf("creating directory %s: %w", dir, err)
+	}
+
+	_, err := os.Stat(file)
+	if os.IsNotExist(err) {
+		f, err := os.Create(file)
+		if err != nil {
+			return fmt.Errorf("creating file %s: %w", file, err)
+		}
+		defer f.Close()
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("checking file %s: %w", file, err)
+	}
+	return nil
+}
+
+func checkBinDependencyNeedsRebuild(thing, version string) (needsRebuild bool, err error) {
+	versionFile := ".deps/versions/v" + version
+	if err := ensureFile(versionFile); err != nil {
+		return false, fmt.Errorf("ensure file: %w", err)
+	}
+
+	rebuild, err := target.Path(".deps/bin/"+thing, versionFile)
+	if err != nil {
+		return false, fmt.Errorf("check: %w", err)
+	}
+	if !rebuild {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 type Build mg.Namespace
@@ -192,6 +272,8 @@ func (Build) Proto() error {
 
 // Compiles adapter shared library (lib/liblinuxcncadapter.so)
 func (Build) Adapter() error {
+	mg.Deps(Dependency.All)
+
 	linuxCNCRoot := strings.TrimRight(os.Getenv("EMC2_HOME"), "/")
 
 	// Run C++ compiler
@@ -220,6 +302,7 @@ func (Build) Adapter() error {
 
 func (Build) Datadump() {
 	mg.SerialDeps(
+		Dependency.All,
 		Build.Adapter,
 		mg.F(Build.Cmd, "datadump"),
 	)
@@ -227,21 +310,17 @@ func (Build) Datadump() {
 
 func (Build) APIServer() {
 	mg.SerialDeps(
+		Dependency.All,
 		mg.F(Build.Cmd, "apiserver"),
 	)
 }
 
 func (Build) Cmd(cmd string) error {
-	wd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("get workdir: %w", err)
-	}
-
 	os.Rename("cmd/datadump/mock.cpp", ".cache/mock.ccp")
 	defer os.Rename(".cache/mock.ccp", "cmd/datadump/mock.cpp")
 
 	env := map[string]string{
-		"LD_LIBRARY_PATH": os.Getenv("LD_LIBRARY_PATH") + ":" + wd + "/lib",
+		"LD_LIBRARY_PATH": os.Getenv("LD_LIBRARY_PATH") + ":" + workDir + "/lib",
 		"CGO_LDFLAGS":     "-Llib -llinuxcncadapter",
 	}
 	if err := sh.RunWithV(env, "go", "build", "-v", "-o", "bin/"+cmd, "./cmd/"+cmd+"/main.go"); err != nil {
