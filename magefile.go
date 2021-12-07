@@ -308,6 +308,14 @@ func (Build) Datadump() {
 	)
 }
 
+func (Build) Datawatch() {
+	mg.SerialDeps(
+		Dependency.All,
+		Build.Adapter,
+		mg.F(Build.Cmd, "datawatch"),
+	)
+}
+
 func (Build) APIServer() {
 	mg.SerialDeps(
 		Dependency.All,
@@ -316,8 +324,11 @@ func (Build) APIServer() {
 }
 
 func (Build) Cmd(cmd string) error {
-	os.Rename("cmd/datadump/mock.cpp", ".cache/mock.ccp")
-	defer os.Rename(".cache/mock.ccp", "cmd/datadump/mock.cpp")
+	os.Rename("cmd/datadump/stub.cpp", ".cache/dstub.ccp")
+	defer os.Rename(".cache/dstub.ccp", "cmd/datadump/stub.cpp")
+
+	os.Rename("internal/linuxcnc/stub.cpp", ".cache/lstub.ccp")
+	defer os.Rename(".cache/lstub.ccp", "internal/linuxcnc/stub.cpp")
 
 	env := map[string]string{
 		"LD_LIBRARY_PATH": os.Getenv("LD_LIBRARY_PATH") + ":" + workDir + "/lib",
@@ -344,6 +355,23 @@ func (Run) Datadump() error {
 	}
 	if err := sh.RunWithV(env, "./bin/datadump"); err != nil {
 		return fmt.Errorf("running cmd/datadump: %w", err)
+	}
+	return nil
+}
+
+func (Run) Datawatch() error {
+	mg.Deps(Build.Datawatch)
+
+	wd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("get workdir: %w", err)
+	}
+
+	env := map[string]string{
+		"LD_LIBRARY_PATH": os.Getenv("LD_LIBRARY_PATH") + ":" + wd + "/lib",
+	}
+	if err := sh.RunWithV(env, "./bin/datawatch"); err != nil {
+		return fmt.Errorf("running cmd/datawatch: %w", err)
 	}
 	return nil
 }
