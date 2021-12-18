@@ -1,0 +1,35 @@
+$color-background: #292929;
+
+:host {
+  background-color: $color-background;
+  display: block;
+  border-radius: 4px;
+  color: white;
+  overflow: hidden;
+  width: 200px;
+}
+
+h1 {
+  padding: 6px 20px;
+  font-size: 1em;
+  margin: 0;
+  background-color: #3c3c3c;
+  text-align: center;
+  font-weight: normal;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+td {
+  padding: 4px;
+}
+td:first-child {
+  text-align: center;
+  width: 14px;
+}
+td:nth-child(2) {
+  text-align: right;
+  color: #3392ff;
+}

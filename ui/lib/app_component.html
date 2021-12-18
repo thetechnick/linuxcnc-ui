@@ -1,0 +1,26 @@
+<main>
+  <header>
+    <lcnc-clock></lcnc-clock>
+  </header>
+  <router-outlet [routes]="Routes.all"></router-outlet>
+</main>
+
+<aside>
+  <nav>
+    <a [routerLink]="RoutePaths.home.toUrl()" [routerLinkActive]="'active-route'">
+      Position
+    </a>
+    <a [routerLink]="RoutePaths.probing.toUrl()" [routerLinkActive]="'active-route'">
+      Probing
+    </a>
+    <a>
+      Tools
+    </a>
+    <a>
+      Program
+    </a>
+    <a>
+      Debug
+    </a>
+  </nav>
+</aside>

@@ -1,0 +1,45 @@
+:host {
+    /* This is equivalent of the 'body' selector of a page. */
+    display: flex;
+}
+
+$color-primary: rgb(0, 105, 224);
+$color-background: #292929;
+
+header {
+    color: white;
+    text-align: right;
+    margin-bottom: 5px;
+}
+
+main {
+    flex-grow: 1;
+    padding: 6px;
+}
+
+
+aside {
+    width: 130px;
+    height: 100vh;
+    background-color: #292929;
+
+    a {
+        text-decoration: none;
+        color: #fff;
+        font-weight: bold;
+        display: block;
+        height: 100px;
+        line-height: 100px;
+        text-align: center;
+        transition: background-color .2s;
+        border-radius: 4px;
+
+        &:hover {
+            background-color: rgba(255, 255, 255, 0.11);
+        }
+
+        &.active-route {
+            background-color: $color-primary;
+        }
+    }
+}
