@@ -73,6 +73,18 @@ int stat_poll(StatHandle handle) {
   return 0;
 }
 
+void pos(stat_Pos *sp, const EmcPose &p) {
+  sp->x = p.tran.x;
+  sp->y = p.tran.y;
+  sp->z = p.tran.z;
+  sp->a = p.a;
+  sp->b = p.b;
+  sp->c = p.c;
+  sp->u = p.u;
+  sp->v = p.v;
+  sp->w = p.w;
+}
+
 void stats_global(StatHandle handle, stat_Global *stats) {
   statHandle *s = (statHandle *)handle;
   // State
@@ -80,6 +92,14 @@ void stats_global(StatHandle handle, stat_Global *stats) {
   stats->cycleTime = s->status.motion.traj.cycleTime;
   stats->trajectoryPlannerEnabled = s->status.motion.traj.enabled;
   stats->file = s->status.io.source_file;
+  stats->fileLineNumber = s->status.task.currentLine;
+
+  stats->motionType = s->status.motion.traj.motion_type;
+
+  // Feed
+  stats->feedHoldEnabled = s->status.motion.traj.feed_hold_enabled;
+  stats->feedOverrideEnabled = s->status.motion.traj.feed_override_enabled;
+  stats->feedOverride = s->status.motion.traj.scale;
 
   // Movement
   stats->inpos = s->status.motion.traj.inpos;
@@ -96,6 +116,12 @@ void stats_global(StatHandle handle, stat_Global *stats) {
   // Machine
   stats->numberOfJoints = s->status.motion.traj.joints;
   stats->numberOfSpindles = s->status.motion.traj.spindles;
+
+  // Positions
+  pos(&stats->probedPosition, s->status.motion.traj.probedPosition);
+  pos(&stats->inputPosition, s->status.motion.traj.position);
+  pos(&stats->currentPosition, s->status.motion.traj.actualPosition);
+  pos(&stats->distanceToGo, s->status.motion.traj.dtg);
 }
 
 void stats_spindles(StatHandle handle, stat_Spindle *stats) {

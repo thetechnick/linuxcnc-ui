@@ -4,6 +4,10 @@
 extern "C" {
 #endif
 
+// ----------------
+// Stats
+// ----------------
+
 typedef void *StatHandle;
 
 // Returns a new stat handle to LinuxCNC.
@@ -15,6 +19,12 @@ int stat_initHandle(StatHandle handle);
 // Load status over established connection.
 int stat_poll(StatHandle handle);
 
+typedef struct stat_Pos {
+  double x, y, z;
+  double a, b, c;
+  double u, v, w;
+} stat_Pos;
+
 typedef struct stat_Global {
   // estop off=0 or on=1
   int estop;
@@ -23,11 +33,14 @@ typedef struct stat_Global {
   int trajectoryPlannerEnabled;
   // Currently loaded gcode filename with path.
   char *file;
+  // source line number motion is currently executing. Relation to id unclear.
+  int fileLineNumber;
 
   // Machine in position flag.
   bool inpos;
   // Motion paused.
   bool motionPaused;
+  int motionType;
 
   // mist coolant off=0 or on=1
   int mist;
@@ -47,6 +60,22 @@ typedef struct stat_Global {
   int numberOfSpindles;
   // number of defined joints. Reflects [KINS]JOINTS ini value.
   int numberOfJoints;
+
+  int feedOverrideEnabled;
+  // current feedrate override, 1.0 = 100%
+  double feedOverride;
+  int feedHoldEnabled;
+
+  // Positions
+
+  // Last position where the probe was tripped.
+  stat_Pos probedPosition;
+  // current commanded position
+  stat_Pos inputPosition;
+  // current actual position, from forward kins
+  stat_Pos currentPosition;
+  // Distance to go in current move.
+  stat_Pos distanceToGo;
 } stat_Global;
 
 void stats_global(StatHandle handle, stat_Global *stats);

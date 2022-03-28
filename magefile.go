@@ -99,6 +99,7 @@ func (Dependency) Protoc() error {
 	); err != nil {
 		return fmt.Errorf("downloading protoc: %w", err)
 	}
+
 	// Unzip
 	if err := sh.Run(
 		"unzip", "-qq", tempDir+"/protoc.zip", "-d", tempDir); err != nil {

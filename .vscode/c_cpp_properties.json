@@ -1,0 +1,17 @@
+{
+  "configurations": [
+    {
+      "cStandard": "c17",
+      "compilerPath": "/usr/bin/clang",
+      "cppStandard": "c++14",
+      "defines": [],
+      "includePath": [
+        "${workspaceFolder}/**",
+        "/usr/include/python3.10"
+      ],
+      "intelliSenseMode": "linux-clang-x64",
+      "name": "Linux"
+    }
+  ],
+  "version": 4
+}

@@ -10,7 +10,8 @@
       "compilerPath": "/usr/bin/clang",
       "cppStandard": "c++17",
       "includePath": [
-        "${myDefaultIncludePath}"
+        "${myDefaultIncludePath}",
+        "/usr/include/**"
       ],
       "intelliSenseMode": "clang-x64",
       "name": "Linux"
@@ -20,7 +21,9 @@
     "myCompilerPath": "/usr/local/bin/gcc-7",
     "myDefaultIncludePath": [
       "${workspaceFolder}",
-      "${workspaceFolder}/include"
+      "${workspaceFolder}/include",
+      "/usr/include",
+      "/usr/include/python3.10"
     ]
   },
   "version": 4
