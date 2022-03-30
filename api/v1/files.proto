@@ -1,0 +1,30 @@
+syntax = "proto3";
+package linuxcnc.api.v1;
+option go_package = "thetechnick.ninja/linuxcnc/api/v1";
+
+import "google/api/annotations.proto";
+
+message FileListRequest {
+  string path = 1;
+}
+
+message FileListResponse {
+  repeated Folder folders = 1;
+  repeated File files = 2;
+}
+
+message File {
+  string name = 1;
+}
+
+message Folder {
+  string name = 1;
+}
+
+service FilesService {
+  rpc List(FileListRequest) returns (FileListResponse) {
+    option (google.api.http) = {
+      get: "/files"
+    };
+  };
+}

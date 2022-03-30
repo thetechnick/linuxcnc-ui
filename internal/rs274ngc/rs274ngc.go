@@ -1,4 +1,4 @@
-package rs274
+package rs274ngc
 
 import (
 	"fmt"

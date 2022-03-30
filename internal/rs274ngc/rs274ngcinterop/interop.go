@@ -1,4 +1,4 @@
-package rs274adapter
+package rs274ngcinterop
 
 /*
 #include <stdlib.h>
@@ -48,11 +48,11 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/thetechnick/linuxcnc-ui/internal/rs274"
+	"github.com/thetechnick/linuxcnc-ui/internal/rs274ngc"
 )
 
-var d = &Interpreter{
-	sink: &rs274.DiscardInterpreterSink{},
+var Interpreter = &interpreter{
+	sink: &rs274ngc.DiscardInterpreterSink{},
 }
 
 func init() {
@@ -83,25 +83,26 @@ func init() {
 	C.registerCallbacks(cb)
 }
 
-type Interpreter struct {
+type interpreter struct {
 	lock sync.Mutex
 
-	sink      rs274.InterpreterSink
+	sink      rs274ngc.InterpreterSink
 	abort     bool
 	abortLock sync.RWMutex
 
 	lastErr error
 }
 
-func (p *Interpreter) Parse(
+func (p *interpreter) Parse(
 	ctx context.Context,
-	sink rs274.InterpreterSink, filename string,
+	sink rs274ngc.InterpreterSink, filename string,
 ) error {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
 	p.lastErr = nil
 	p.abort = false
+	p.sink = sink
 
 	doneCh := make(chan struct{})
 	defer close(doneCh)
@@ -116,18 +117,21 @@ func (p *Interpreter) Parse(
 		}
 	}()
 
-	// C.parseFile(cfilename)
+	var cfilename *C.char = C.CString(filename)
+	defer C.free(unsafe.Pointer(cfilename))
+
+	C.parseFile(cfilename)
 	return p.lastErr
 }
 
-func (p *Interpreter) reportError(interpreterError, lastSequenceNumber int) {
-	p.lastErr = &rs274.InterpreterError{
+func (p *interpreter) reportError(interpreterError, lastSequenceNumber int) {
+	p.lastErr = &rs274ngc.InterpreterError{
 		InterpreterError:   interpreterError,
 		LastSequenceNumber: lastSequenceNumber,
 	}
 }
 
-func (p *Interpreter) checkAbort() bool {
+func (p *interpreter) checkAbort() bool {
 	p.abortLock.RLock()
 	defer p.abortLock.RUnlock()
 	return p.abort
@@ -139,27 +143,27 @@ func (p *Interpreter) checkAbort() bool {
 
 //export errorGo
 func errorGo(interpError, lastSequenceNumber C.int) {
-	d.reportError(int(interpError), int(lastSequenceNumber))
+	Interpreter.reportError(int(interpError), int(lastSequenceNumber))
 }
 
 //export abortGo
 func abortGo() C.bool {
-	return C.bool(d.checkAbort())
+	return C.bool(Interpreter.checkAbort())
 }
 
 //export messageGo
 func messageGo(message *C.char) {
-	d.sink.Message(C.GoString(message))
+	Interpreter.sink.Message(C.GoString(message))
 }
 
 //export commentGo
 func commentGo(message *C.char) {
-	d.sink.Comment(C.GoString(message))
+	Interpreter.sink.Comment(C.GoString(message))
 }
 
 //export changeToolGo
 func changeToolGo(pocket C.int) {
-	d.sink.ChangeTool(int(pocket))
+	Interpreter.sink.ChangeTool(int(pocket))
 }
 
 // --------
@@ -168,23 +172,23 @@ func changeToolGo(pocket C.int) {
 
 //export useLengthUnitsGo
 func useLengthUnitsGo(units C.int) {
-	var u rs274.LengthUnit
+	var u rs274ngc.LengthUnit
 	switch int(units) {
 	case 1:
-		u = rs274.LengthInches
+		u = rs274ngc.LengthInches
 	case 2:
-		u = rs274.LengthMillimeter
+		u = rs274ngc.LengthMillimeter
 	case 3:
-		u = rs274.LengthCentimeter
+		u = rs274ngc.LengthCentimeter
 	default:
 		panic("unknown length unit")
 	}
-	d.sink.UseLengthUnit(u)
+	Interpreter.sink.UseLengthUnit(u)
 }
 
 //export useToolLengthOffsetGo
 func useToolLengthOffsetGo(x, y, z, a, b, c, u, v, w C.double) {
-	d.sink.UseToolLengthOffset(rs274.Position{
+	Interpreter.sink.UseToolLengthOffset(rs274ngc.Position{
 		X: float64(x), Y: float64(y), Z: float64(z),
 		A: float64(a), B: float64(b), C: float64(c),
 		U: float64(u), V: float64(v), W: float64(w),
@@ -193,34 +197,34 @@ func useToolLengthOffsetGo(x, y, z, a, b, c, u, v, w C.double) {
 
 //export selectPlaneGo
 func selectPlaneGo(plane C.int) {
-	var p rs274.Plane
+	var p rs274ngc.Plane
 	switch int(plane) {
 	case 1:
-		p = rs274.PlaneXY
+		p = rs274ngc.PlaneXY
 	case 2:
-		p = rs274.PlaneYZ
+		p = rs274ngc.PlaneYZ
 	case 3:
-		p = rs274.PlaneXZ
+		p = rs274ngc.PlaneXZ
 	case 4:
-		p = rs274.PlaneUV
+		p = rs274ngc.PlaneUV
 	case 5:
-		p = rs274.PlaneVW
+		p = rs274ngc.PlaneVW
 	case 6:
-		p = rs274.PlaneUW
+		p = rs274ngc.PlaneUW
 	default:
 		panic("unknown plane")
 	}
-	d.sink.SelectPlane(p)
+	Interpreter.sink.SelectPlane(p)
 }
 
 //export setXYRotationGo
 func setXYRotationGo(rotation C.double) {
-	d.sink.SetXYRotation(float64(rotation))
+	Interpreter.sink.SetXYRotation(float64(rotation))
 }
 
 //export setG5XOffsetGo
 func setG5XOffsetGo(index C.int, x, y, z, a, b, c, u, v, w C.double) {
-	d.sink.SetG5XOffset(int(index), rs274.Position{
+	Interpreter.sink.SetG5XOffset(int(index), rs274ngc.Position{
 		X: float64(x), Y: float64(y), Z: float64(z),
 		A: float64(a), B: float64(b), C: float64(c),
 		U: float64(u), V: float64(v), W: float64(w),
@@ -229,7 +233,7 @@ func setG5XOffsetGo(index C.int, x, y, z, a, b, c, u, v, w C.double) {
 
 //export setG92OffsetGo
 func setG92OffsetGo(x, y, z, a, b, c, u, v, w C.double) {
-	d.sink.SetG92Offset(rs274.Position{
+	Interpreter.sink.SetG92Offset(rs274ngc.Position{
 		X: float64(x), Y: float64(y), Z: float64(z),
 		A: float64(a), B: float64(b), C: float64(c),
 		U: float64(u), V: float64(v), W: float64(w),
@@ -238,17 +242,17 @@ func setG92OffsetGo(x, y, z, a, b, c, u, v, w C.double) {
 
 //export setTraverseRateGo
 func setTraverseRateGo(rate C.double) {
-	d.sink.SetTraverseRate(float64(rate))
+	Interpreter.sink.SetTraverseRate(float64(rate))
 }
 
 //export setFeedModeGo
 func setFeedModeGo(spindle, mode C.int) {
-	d.sink.SetFeedMode(int(spindle), int(mode))
+	Interpreter.sink.SetFeedMode(int(spindle), int(mode))
 }
 
 //export setFeedRateGo
 func setFeedRateGo(rate C.double) {
-	d.sink.SetFeedRate(float64(rate))
+	Interpreter.sink.SetFeedRate(float64(rate))
 }
 
 // --------
@@ -257,7 +261,7 @@ func setFeedRateGo(rate C.double) {
 
 //export straightTraverseGo
 func straightTraverseGo(lineNo C.int, x, y, z, a, b, c, u, v, w C.double) {
-	d.sink.StraightTraverse(int(lineNo), rs274.Position{
+	Interpreter.sink.StraightTraverse(int(lineNo), rs274ngc.Position{
 		X: float64(x), Y: float64(y), Z: float64(z),
 		A: float64(a), B: float64(b), C: float64(c),
 		U: float64(u), V: float64(v), W: float64(w),
@@ -266,7 +270,7 @@ func straightTraverseGo(lineNo C.int, x, y, z, a, b, c, u, v, w C.double) {
 
 //export arcFeedGo
 func arcFeedGo(firstEnd, secondEnd, firstAxis, secondAxis C.double, rotation C.int, axisEndPoint, aPosition, bPosition, cPosition, uPosition, vPosition, wPosition C.double) {
-	d.sink.ArcFeed(rs274.ArcMove{
+	Interpreter.sink.ArcFeed(rs274ngc.ArcMove{
 		FirstEnd:     float64(firstEnd),
 		SecondEnd:    float64(secondEnd),
 		FirstAxis:    float64(firstAxis),
@@ -281,7 +285,7 @@ func arcFeedGo(firstEnd, secondEnd, firstAxis, secondAxis C.double, rotation C.i
 
 //export straightFeedGo
 func straightFeedGo(lineNo C.int, x, y, z, a, b, c, u, v, w C.double) {
-	d.sink.StraightFeed(int(lineNo), rs274.Position{
+	Interpreter.sink.StraightFeed(int(lineNo), rs274ngc.Position{
 		X: float64(x), Y: float64(y), Z: float64(z),
 		A: float64(a), B: float64(b), C: float64(c),
 		U: float64(u), V: float64(v), W: float64(w),
@@ -290,7 +294,7 @@ func straightFeedGo(lineNo C.int, x, y, z, a, b, c, u, v, w C.double) {
 
 //export straightProbeGo
 func straightProbeGo(lineNo C.int, x, y, z, a, b, c, u, v, w C.double) {
-	d.sink.StraightProbe(int(lineNo), rs274.Position{
+	Interpreter.sink.StraightProbe(int(lineNo), rs274ngc.Position{
 		X: float64(x), Y: float64(y), Z: float64(z),
 		A: float64(a), B: float64(b), C: float64(c),
 		U: float64(u), V: float64(v), W: float64(w),
@@ -299,23 +303,11 @@ func straightProbeGo(lineNo C.int, x, y, z, a, b, c, u, v, w C.double) {
 
 //export rigidTapGo
 func rigidTapGo(lineNo C.int, x, y, z, scale C.double) {
-	d.sink.RigidTap(
+	Interpreter.sink.RigidTap(
 		int(lineNo), float64(x), float64(y), float64(z), float64(scale))
 }
 
 //export dwellGo
 func dwellGo(seconds C.double) {
-	d.sink.Dwell(time.Duration(float64(seconds) * float64(time.Second)))
-}
-
-func DoStuff() {
-	cb := C.Callbacks{}
-	cb.error = C.ErrorFn(C.ErrorAdpt)
-	C.registerCallbacks(cb)
-
-	f := "xxx"
-	var cfilename *C.char = C.CString(f)
-	defer C.free(unsafe.Pointer(cfilename))
-
-	C.parseFile(cfilename)
+	Interpreter.sink.Dwell(time.Duration(float64(seconds) * float64(time.Second)))
 }

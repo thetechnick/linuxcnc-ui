@@ -1,0 +1,137 @@
+syntax = "proto3";
+package linuxcnc.api.v1;
+option go_package = "thetechnick.ninja/linuxcnc/api/v1";
+
+import "google/api/annotations.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/any.proto";
+
+message InterpreterRequest {
+  string file = 1;
+}
+
+message InterpreterResponse {
+  repeated google.protobuf.Any instructions = 1;
+}
+
+message InterpreterPosition {
+  double x = 1;
+  double y = 2;
+  double z = 3;
+  double a = 4;
+  double b = 5;
+  double c = 6;
+  double u = 7;
+  double v = 8;
+  double w = 9;
+}
+
+// Util
+
+message CommentInstruction {
+  string comment = 1;
+}
+
+message MessageInstruction {
+  string message = 1;
+}
+
+message ChangeToolInstruction {
+  int32 toolNumber = 1;
+}
+
+// Settings
+
+message UseLengthUnitInstruction {
+  string unit = 1;
+}
+
+message UseToolLengthOffsetInstruction {
+  InterpreterPosition position = 1;
+}
+
+message SelectPlaneInstruction {
+  string plane = 1;
+}
+
+message SetXYRotationInstruction {
+  double position = 1;
+}
+
+message SetG5XOffsetInstruction {
+  int32 index = 1;
+  InterpreterPosition position = 2;
+}
+
+message Set92OffsetInstruction {
+  InterpreterPosition position = 1;
+}
+
+message SetTraverseRateInstruction {
+  double rate = 1;
+}
+
+message SetFeedModeInstruction {
+  int32 spindleNumber = 1;
+  int32 mode = 2;
+}
+
+message SetFeedRateInstruction {
+  double rate = 1;
+}
+
+// Movement
+
+message StraightTraverseInstruction {
+  int32 lineNumber = 1;
+  InterpreterPosition position = 2;
+}
+
+message ArcMove {
+  double firstEnd = 1;
+  double secondEnd = 2;
+  int32 rotation = 3;
+  double A = 4;
+  double B = 5;
+  double C = 6;
+  double U = 7;
+  double V = 8;
+  double W = 9;
+  double firstAxis = 10;
+  double secondAxis = 11;
+  double axisEndPoint = 12;
+}
+
+message ArcFeedInstruction {
+  ArcMove arcMove = 1;
+}
+
+message StraightFeedInstruction {
+  int32 lineNumber = 1;
+  InterpreterPosition position = 2;
+}
+
+message StraightProbeInstruction {
+  int32 lineNumber = 1;
+  InterpreterPosition position = 2;
+}
+
+message RigidTapInstruction {
+  double x = 1;
+  double y = 2;
+  double z = 3;
+  double scale = 4;
+  int32 lineNumber = 5;
+}
+
+message DwellInstruction {
+  google.protobuf.Duration time = 1;
+}
+
+service InterpreterService {
+  rpc Interpret(InterpreterRequest) returns (InterpreterResponse) {
+    option (google.api.http) = {
+      get: "/interpreter"
+    };
+  };
+}
