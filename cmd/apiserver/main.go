@@ -39,9 +39,17 @@ func run(c apiserver.APIServerConfig) error {
 			linuxcncv1.RegisterHealthServiceServer(grpcServer, healthService)
 
 			if err := linuxcncv1.RegisterHealthServiceHandler(ctx, grpcGatewayMux, grpcClient); err != nil {
-				return fmt.Errorf("register gateway handler: %w", err)
+				return fmt.Errorf("register health service handler: %w", err)
 			}
 
+			fileService := &apiserverv1.FilesServiceServer{
+				Root: "/tmp/test",
+			}
+			linuxcncv1.RegisterFilesServiceServer(grpcServer, fileService)
+
+			if err := linuxcncv1.RegisterFilesServiceHandler(ctx, grpcGatewayMux, grpcClient); err != nil {
+				return fmt.Errorf("register files service handler: %w", err)
+			}
 			return nil
 		},
 	}

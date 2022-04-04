@@ -6,9 +6,9 @@ package main
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
@@ -16,10 +16,10 @@ import (
 )
 
 const (
-	protocVersion               = "3.19.1"
-	protocGenGoVersion          = "1.25.0"
-	protocGenGoGRPCVersion      = "1.0.1"
-	protocGenGRPCGatewayVersion = "2.1.0"
+	protocGenGoVersion          = "1.28.0"
+	protocGenGoGRPCVersion      = "1.2.0"
+	protocGenGRPCGatewayVersion = "2.10.0"
+	bufVersion                  = "1.3.1"
 	goimportsVersion            = "0.1.5"
 	golangCILintVersion         = "1.43.0"
 )
@@ -33,9 +33,10 @@ var (
 
 func init() {
 	workDir, _ = os.Getwd()
-	depsDir = workDir + "/.deps"
-	depsBinDir = depsDir + "/bin"
-	depsIncludeDir = depsDir + "/include"
+	depsDir = path.Join(workDir, ".deps")
+	depsBinDir = path.Join(depsDir, "bin")
+	depsIncludeDir = path.Join(depsDir, "/include")
+	os.Setenv("PATH", depsBinDir+":"+os.Getenv("PATH"))
 }
 
 func Generate() {
@@ -46,8 +47,9 @@ type Dependency mg.Namespace
 
 func (Dependency) All() {
 	mg.Deps(
-		Dependency.Protoc,
-		Dependency.GRPCGatewayIncludes,
+		mg.F(Dependency.GoInstall, "buf", "github.com/bufbuild/buf/cmd/buf", bufVersion),
+		mg.F(Dependency.GoInstall, "buf", "github.com/bufbuild/buf/cmd/protoc-gen-buf-breaking", bufVersion),
+		mg.F(Dependency.GoInstall, "buf", "github.com/bufbuild/buf/cmd/protoc-gen-buf-lint", bufVersion),
 		mg.F(Dependency.GoInstall, "protoc-gen-go", "google.golang.org/protobuf/cmd/protoc-gen-go", protocGenGoVersion),
 		mg.F(Dependency.GoInstall, "protoc-gen-go-grpc", "google.golang.org/grpc/cmd/protoc-gen-go-grpc", protocGenGoGRPCVersion),
 		mg.F(Dependency.GoInstall, "protoc-gen-grpc-gateway", "github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway", protocGenGRPCGatewayVersion),
@@ -66,113 +68,6 @@ func (Dependency) Dirs() error {
 	}
 	if err := os.MkdirAll(".deps/include/google", os.ModePerm); err != nil {
 		return fmt.Errorf("creating deps/include dir: %w", err)
-	}
-	return nil
-}
-
-func (Dependency) Protoc() error {
-	mg.Deps(Dependency.Dirs)
-
-	needsRebuild, err := checkBinDependencyNeedsRebuild("protoc", protocVersion)
-	if err != nil {
-		return err
-	}
-	if !needsRebuild {
-		return nil
-	}
-
-	// Tempdir
-	tempDir, err := os.MkdirTemp(".cache", "")
-	if err != nil {
-		return fmt.Errorf("temp dir: %w", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	// Download
-	if err := sh.Run(
-		"curl", "-L", "--fail",
-		"-o", tempDir+"/protoc.zip",
-		fmt.Sprintf(
-			"https://github.com/protocolbuffers/protobuf/releases/download/v%s/protoc-%s-linux-x86_64.zip",
-			protocVersion, protocVersion,
-		),
-	); err != nil {
-		return fmt.Errorf("downloading protoc: %w", err)
-	}
-
-	// Unzip
-	if err := sh.Run(
-		"unzip", "-qq", tempDir+"/protoc.zip", "-d", tempDir); err != nil {
-		return fmt.Errorf("unzipping protoc: %w", err)
-	}
-
-	// Move
-	if err := os.RemoveAll(depsDir + "/include/google/protobuf"); err != nil {
-		return fmt.Errorf("clean protobuf imports: %w", err)
-	}
-	if err := os.Rename(tempDir+"/include/google/protobuf", depsIncludeDir+"/google/protobuf"); err != nil {
-		return fmt.Errorf("move include: %w", err)
-	}
-	if err := os.Rename(tempDir+"/bin/protoc", depsDir+"/bin/protoc"); err != nil {
-		return fmt.Errorf("move protoc: %w", err)
-	}
-
-	// Bump timestamp
-	currentTime := time.Now().Local()
-	err = os.Chtimes(depsDir+"/bin/protoc", currentTime, currentTime)
-	if err != nil {
-		return fmt.Errorf("bump change date: %w", err)
-	}
-
-	return nil
-}
-
-func (Dependency) GRPCGatewayIncludes() error {
-	mg.Deps(Dependency.Dirs)
-
-	// Remember version
-	versionFile := depsDir + "/versions/grpc-gateway-includes/v" + protocGenGRPCGatewayVersion
-	if err := ensureFile(versionFile); err != nil {
-		return fmt.Errorf("ensure file: %w", err)
-	}
-
-	// Check if rebuild is needed
-	rebuild, err := target.Path(".deps/include/google/api", versionFile)
-	if err != nil {
-		return fmt.Errorf("check: %w", err)
-	}
-	if !rebuild {
-		return nil
-	}
-
-	// Tempdir
-	tempDir, err := os.MkdirTemp(".cache", "")
-	if err != nil {
-		return fmt.Errorf("temp dir: %w", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	// Git clone
-	if err := sh.RunV(
-		"git", "clone", "https://github.com/grpc-ecosystem/grpc-gateway",
-		"--depth=1", "--branch=v"+protocGenGRPCGatewayVersion,
-		tempDir,
-	); err != nil {
-		return fmt.Errorf("git checkout: %w", err)
-	}
-
-	// Move
-	if err := os.RemoveAll(depsIncludeDir + "/google/api"); err != nil {
-		return fmt.Errorf("clean protobuf gateway imports: %w", err)
-	}
-	if err := os.RemoveAll(depsIncludeDir + "/google/rpc"); err != nil {
-		return fmt.Errorf("clean protobuf imports: %w", err)
-	}
-	if err := os.Rename(tempDir+"/third_party/googleapis/google/api", depsIncludeDir+"/google/api"); err != nil {
-		return fmt.Errorf("move includes: %w", err)
-	}
-	if err := os.Rename(tempDir+"/third_party/googleapis/google/rpc", depsIncludeDir+"/google/rpc"); err != nil {
-		return fmt.Errorf("move includes: %w", err)
 	}
 	return nil
 }
@@ -241,33 +136,12 @@ func checkBinDependencyNeedsRebuild(thing, version string) (needsRebuild bool, e
 type Build mg.Namespace
 
 func (Build) Proto() error {
-	// mg.Deps(Dependency.All)
+	mg.Deps(Dependency.All)
 
-	matches, err := filepath.Glob("api/**/*.proto")
+	err := sh.RunWithV(map[string]string{}, "buf", "generate", "--path", "api")
 	if err != nil {
-		return fmt.Errorf("glob *.proto files: %w", err)
+		return fmt.Errorf("running buf: %w", err)
 	}
-
-	for _, match := range matches {
-		err := sh.RunWithV(
-			map[string]string{
-				"PATH": depsBinDir + ":$PATH",
-			}, "protoc",
-			"--go_out="+filepath.Dir(match), "--go_opt=paths=source_relative",
-			"--go-grpc_out="+filepath.Dir(match), "--go-grpc_opt=paths=source_relative",
-			"--grpc-gateway_out="+filepath.Dir(match),
-			"--grpc-gateway_opt", "paths=source_relative",
-			"--grpc-gateway_opt", "generate_unbound_methods=true",
-			"-I"+depsIncludeDir,
-			"-Iapi/v1",
-			"-I"+filepath.Dir(match),
-			match,
-		)
-		if err != nil {
-			return fmt.Errorf("running protoc for %q: %w", match, err)
-		}
-	}
-
 	return nil
 }
 
