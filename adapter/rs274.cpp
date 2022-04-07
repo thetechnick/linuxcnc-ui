@@ -12,6 +12,19 @@ static int interp_error;
 static int last_sequence_number;
 static double _pos_x, _pos_y, _pos_z, _pos_a, _pos_b, _pos_c, _pos_u, _pos_v,
     _pos_w;
+EmcPose tool_offset;
+CANON_UNITS _length_unit_type = CANON_UNITS_MM;
+int _task = 0; // control preview behaviour when remapping
+struct _inittab builtin_modules[] = {};
+
+//----------------------
+// Callback Registration
+//----------------------
+
+static Callbacks callbacks;
+
+// register callback functions for the parser to call.
+void registerCallbacks(Callbacks cb) { callbacks = cb; }
 
 #define RESULT_OK (result == INTERP_OK || result == INTERP_EXECUTE_FINISH)
 
@@ -87,15 +100,6 @@ out_error:
   return 0;
 }
 
-//----------------------
-// Callback Registration
-//----------------------
-
-static Callbacks callbacks;
-
-// register callback functions for the parser to call.
-void registerCallbacks(Callbacks cb) { callbacks = cb; }
-
 //----------------------------
 // RS274 Interpreter Functions
 //----------------------------
@@ -170,6 +174,8 @@ void SET_MOTION_CONTROL_MODE(CANON_MOTION_MODE mode, double tolerance) {
   motion_mode = mode;
 }
 
+CANON_MOTION_MODE GET_EXTERNAL_MOTION_CONTROL_MODE() { return motion_mode; }
+
 void SET_NAIVECAM_TOLERANCE(double tolerance) {}
 
 void SELECT_PLANE(CANON_PLANE in_plane) {
@@ -185,7 +191,7 @@ void START_CUTTER_RADIUS_COMPENSATION(int side) {}
 void STOP_CUTTER_RADIUS_COMPENSATION() {}
 
 void START_SPEED_FEED_SYNCH() {}
-
+void START_SPEED_FEED_SYNCH(int spindle, double sync, bool vel){};
 void STOP_SPEED_FEED_SYNCH() {}
 
 void MESSAGE(char *comment) {
@@ -194,7 +200,7 @@ void MESSAGE(char *comment) {
   callbacks.message(comment);
 }
 
-void COMMENT(char *c) {
+void COMMENT(const char *c) {
   if (interp_error)
     return;
   callbacks.comment(c);
@@ -327,6 +333,8 @@ void SET_TOOL_TABLE_ENTRY(int idx, int toolno, EmcPose offset, double diameter,
                           int orientation) {}
 
 void USE_TOOL_LENGTH_OFFSET(EmcPose offset) {
+  tool_offset = offset;
+
   if (interp_error)
     return;
 
@@ -342,8 +350,177 @@ void CHANGE_TOOL(int slot) {
   callbacks.changeTool(slot);
 }
 
+// ------
+// Unused
+// ------
+
 void SELECT_TOOL(int tool) {}
 
 void CHANGE_TOOL_NUMBER(int tool) {}
 
 void RELOAD_TOOLDATA(void) {}
+void TURN_PROBE_ON() {}
+void TURN_PROBE_OFF() {}
+int GET_EXTERNAL_TC_FAULT() { return 0; }
+int GET_EXTERNAL_TC_REASON() { return 0; }
+
+double GET_EXTERNAL_MOTION_CONTROL_TOLERANCE() { return 0.1; }
+double GET_EXTERNAL_MOTION_CONTROL_NAIVECAM_TOLERANCE() { return 0.1; }
+double GET_EXTERNAL_PROBE_POSITION_X() { return _pos_x; }
+double GET_EXTERNAL_PROBE_POSITION_Y() { return _pos_y; }
+double GET_EXTERNAL_PROBE_POSITION_Z() { return _pos_z; }
+double GET_EXTERNAL_PROBE_POSITION_A() { return _pos_a; }
+double GET_EXTERNAL_PROBE_POSITION_B() { return _pos_b; }
+double GET_EXTERNAL_PROBE_POSITION_C() { return _pos_c; }
+double GET_EXTERNAL_PROBE_POSITION_U() { return _pos_u; }
+double GET_EXTERNAL_PROBE_POSITION_V() { return _pos_v; }
+double GET_EXTERNAL_PROBE_POSITION_W() { return _pos_w; }
+double GET_EXTERNAL_PROBE_VALUE() { return 0.0; }
+int GET_EXTERNAL_PROBE_TRIPPED_VALUE() { return 0; }
+double GET_EXTERNAL_POSITION_X() { return _pos_x; }
+double GET_EXTERNAL_POSITION_Y() { return _pos_y; }
+double GET_EXTERNAL_POSITION_Z() { return _pos_z; }
+double GET_EXTERNAL_POSITION_A() { return _pos_a; }
+double GET_EXTERNAL_POSITION_B() { return _pos_b; }
+double GET_EXTERNAL_POSITION_C() { return _pos_c; }
+double GET_EXTERNAL_POSITION_U() { return _pos_u; }
+double GET_EXTERNAL_POSITION_V() { return _pos_v; }
+double GET_EXTERNAL_POSITION_W() { return _pos_w; }
+void INIT_CANON() {}
+
+int GET_EXTERNAL_QUEUE_EMPTY() { return true; }
+CANON_DIRECTION GET_EXTERNAL_SPINDLE(int) { return CANON_STOPPED; }
+int GET_EXTERNAL_TOOL_SLOT() { return 0; }
+int GET_EXTERNAL_SELECTED_TOOL_SLOT() { return 0; }
+double GET_EXTERNAL_FEED_RATE() { return 1; }
+double GET_EXTERNAL_TRAVERSE_RATE() { return 0; }
+int GET_EXTERNAL_FLOOD() { return 0; }
+int GET_EXTERNAL_MIST() { return 0; }
+CANON_PLANE GET_EXTERNAL_PLANE() { return CANON_PLANE_XY; }
+double GET_EXTERNAL_SPEED(int spindle) { return 0; }
+void DISABLE_ADAPTIVE_FEED() {}
+void ENABLE_ADAPTIVE_FEED() {}
+
+int GET_EXTERNAL_FEED_OVERRIDE_ENABLE() { return 1; }
+int GET_EXTERNAL_SPINDLE_OVERRIDE_ENABLE(int spindle) { return 1; }
+int GET_EXTERNAL_ADAPTIVE_FEED_ENABLE() { return 0; }
+int GET_EXTERNAL_FEED_HOLD_ENABLE() { return 1; }
+
+double GET_EXTERNAL_TOOL_LENGTH_XOFFSET() { return tool_offset.tran.x; }
+double GET_EXTERNAL_TOOL_LENGTH_YOFFSET() { return tool_offset.tran.y; }
+double GET_EXTERNAL_TOOL_LENGTH_ZOFFSET() { return tool_offset.tran.z; }
+double GET_EXTERNAL_TOOL_LENGTH_AOFFSET() { return tool_offset.a; }
+double GET_EXTERNAL_TOOL_LENGTH_BOFFSET() { return tool_offset.b; }
+double GET_EXTERNAL_TOOL_LENGTH_COFFSET() { return tool_offset.c; }
+double GET_EXTERNAL_TOOL_LENGTH_UOFFSET() { return tool_offset.u; }
+double GET_EXTERNAL_TOOL_LENGTH_VOFFSET() { return tool_offset.v; }
+double GET_EXTERNAL_TOOL_LENGTH_WOFFSET() { return tool_offset.w; }
+
+void START_CHANGE() {}
+void MIST_OFF() {}
+void FLOOD_OFF() {}
+void MIST_ON() {}
+void FLOOD_ON() {}
+void PROGRAM_STOP() {}
+void PROGRAM_END() {}
+void FINISH() {}
+
+bool GET_OPTIONAL_PROGRAM_STOP() { return false; }
+void SET_OPTIONAL_PROGRAM_STOP(bool state) {}
+void OPTIONAL_PROGRAM_STOP() {}
+void PALLET_SHUTTLE() {}
+void ENABLE_FEED_HOLD() {}
+
+void SET_BLOCK_DELETE(bool enabled) {}
+bool GET_BLOCK_DELETE(void) { return false; }
+
+void IO_PLUGIN_CALL(int len, const char *call) {}
+void CANON_ERROR(const char *fmt, ...){};
+void DISABLE_FEED_OVERRIDE() {}
+void ENABLE_FEED_OVERRIDE() {}
+void ENABLE_SPEED_OVERRIDE(int spindle) {}
+
+void UPDATE_TAG(StateTag tag) {}
+void CLEAR_MOTION_OUTPUT_BIT(int bit) {}
+
+void CLAMP_AXIS(CANON_AXIS axis) {}
+int LOCK_ROTARY(int line_no, int joint_num) { return 0; }
+int WAIT(int index, int input_type, int wait_type, double timeout) { return 0; }
+void DISABLE_SPEED_OVERRIDE(int spindle) {}
+double GET_EXTERNAL_ANALOG_INPUT(int index, double def) { return def; }
+int GET_EXTERNAL_OFFSET_APPLIED() { return 0; }
+
+char _parameter_file_name[PARAMETER_FILE_NAME_LENGTH];
+extern void SET_PARAMETER_FILE_NAME(const char *name) {
+  strncpy(_parameter_file_name, name, PARAMETER_FILE_NAME_LENGTH);
+}
+
+void GET_EXTERNAL_PARAMETER_FILE_NAME(
+    char *file_name, /* string: to copy file name into       */
+    int max_size)    /* maximum number of characters to copy */
+{
+  // Paranoid checks
+  if (0 == file_name)
+    return;
+
+  if (max_size < 0)
+    return;
+
+  if (strlen(_parameter_file_name) < (size_t)max_size)
+    strcpy(file_name, _parameter_file_name);
+  else
+    file_name[0] = 0;
+}
+
+EmcPose GET_EXTERNAL_OFFSETS() {
+  EmcPose e;
+  e.tran.x = 0;
+  e.tran.y = 0;
+  e.tran.z = 0;
+  e.a = 0;
+  e.b = 0;
+  e.c = 0;
+  e.u = 0;
+  e.v = 0;
+  e.w = 0;
+  return e;
+};
+
+void PLUGIN_CALL(int len, const char *call) {}
+double GET_EXTERNAL_LENGTH_UNITS() { return 0.03937007874016; }
+int GET_EXTERNAL_AXIS_MASK() { return 0x3f; } // XYZABC machine
+double GET_EXTERNAL_ANGLE_UNITS() { return 1.0; }
+void ON_RESET(void) {}
+void CLEAR_AUX_OUTPUT_BIT(int index) {}
+int UNLOCK_ROTARY(int line_no, int joint_num) { return 0; }
+void SET_MOTION_OUTPUT_VALUE(int index, double value) {}
+int GET_EXTERNAL_DIGITAL_INPUT(int index, int def) { return def; }
+
+CANON_UNITS GET_EXTERNAL_LENGTH_UNIT_TYPE() { return _length_unit_type; }
+void SET_AUX_OUTPUT_BIT(int index) {}
+void DISABLE_FEED_HOLD() {}
+
+USER_DEFINED_FUNCTION_TYPE USER_DEFINED_FUNCTION[USER_DEFINED_FUNCTION_NUM] = {
+    0};
+
+int USER_DEFINED_FUNCTION_ADD(USER_DEFINED_FUNCTION_TYPE func, int num) {
+  if (num < 0 || num >= USER_DEFINED_FUNCTION_NUM) {
+    return -1;
+  }
+
+  USER_DEFINED_FUNCTION[num] = func;
+
+  return 0;
+}
+
+void SET_AUX_OUTPUT_VALUE(int index, double value) {}
+
+extern CANON_TOOL_TABLE GET_EXTERNAL_TOOL_TABLE(int idx) {
+#ifdef TOOL_NML //{
+  return _sai._tools[idx];
+#else  //}{
+  CANON_TOOL_TABLE tdata;
+  return tdata;
+#endif //}
+}
+void SET_MOTION_OUTPUT_BIT(int index) {}

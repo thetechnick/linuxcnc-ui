@@ -63,7 +63,7 @@ message SetG5XOffsetInstruction {
   InterpreterPosition position = 2;
 }
 
-message Set92OffsetInstruction {
+message SetG92OffsetInstruction {
   InterpreterPosition position = 1;
 }
 
@@ -125,7 +125,7 @@ message RigidTapInstruction {
 }
 
 message DwellInstruction {
-  google.protobuf.Duration time = 1;
+  google.protobuf.Duration duration = 1;
 }
 
 service InterpreterService {

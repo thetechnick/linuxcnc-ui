@@ -13,6 +13,7 @@ import (
 	linuxcncv1 "github.com/thetechnick/linuxcnc-ui/api/v1"
 	"github.com/thetechnick/linuxcnc-ui/internal/apiserver"
 	apiserverv1 "github.com/thetechnick/linuxcnc-ui/internal/apiserver/v1"
+	"github.com/thetechnick/linuxcnc-ui/internal/rs274ngc/rs274ngcinterop"
 )
 
 func main() {
@@ -37,18 +38,27 @@ func run(c apiserver.APIServerConfig) error {
 
 			healthService := &apiserverv1.HealthServiceServer{}
 			linuxcncv1.RegisterHealthServiceServer(grpcServer, healthService)
-
 			if err := linuxcncv1.RegisterHealthServiceHandler(ctx, grpcGatewayMux, grpcClient); err != nil {
 				return fmt.Errorf("register health service handler: %w", err)
 			}
 
+			fileRoot := "/tmp/test"
+
 			fileService := &apiserverv1.FilesServiceServer{
-				Root: "/tmp/test",
+				Root: fileRoot,
 			}
 			linuxcncv1.RegisterFilesServiceServer(grpcServer, fileService)
-
 			if err := linuxcncv1.RegisterFilesServiceHandler(ctx, grpcGatewayMux, grpcClient); err != nil {
 				return fmt.Errorf("register files service handler: %w", err)
+			}
+
+			interpreterService := &apiserverv1.InterpreterServiceServer{
+				Interpreter: rs274ngcinterop.Interpreter,
+				Root:        fileRoot,
+			}
+			linuxcncv1.RegisterInterpreterServiceServer(grpcServer, interpreterService)
+			if err := linuxcncv1.RegisterInterpreterServiceHandler(ctx, grpcGatewayMux, grpcClient); err != nil {
+				return fmt.Errorf("register interpreter service handler: %w", err)
 			}
 			return nil
 		},

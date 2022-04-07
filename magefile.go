@@ -175,6 +175,37 @@ func (Build) Adapter() error {
 	return nil
 }
 
+// Compiles rs274 shared library (lib/librs274.so)
+func (Build) Rs274() error {
+	mg.Deps(Dependency.All)
+
+	linuxCNCRoot := strings.TrimRight(os.Getenv("EMC2_HOME"), "/")
+
+	// Run C++ compiler
+	i := "-I" + linuxCNCRoot
+	if err := sh.RunV("g++", "-c", "adapter/rs274.cpp", "-fPIC",
+		"-o", "adapter/rs274.o",
+		i+"/lib", i+"/include",
+		"-I/usr/include/python3.9",
+		i+"/src", i+"/src/libnml", i+"/src/emc/rs274ngc",
+		i+"/src/rtapi", i+"/src/emc/tooldata",
+	); err != nil {
+		return fmt.Errorf("compiling adapter/rs274.o: %w", err)
+	}
+
+	// Create shared library
+	if err := sh.RunV("gcc", "-shared",
+		"-o", "lib/librs274.so",
+		"adapter/rs274.o",
+		"-lnml", "-llinuxcnc", "-llinuxcnchal", "-ltooldata", "-lrs274", "-llinuxcncini",
+		"-L"+linuxCNCRoot+"/lib",
+	); err != nil {
+		return fmt.Errorf("linking adapter/librs274.so: %w", err)
+	}
+
+	return nil
+}
+
 func (Build) Datadump() {
 	mg.SerialDeps(
 		Dependency.All,
@@ -194,6 +225,7 @@ func (Build) Datawatch() {
 func (Build) APIServer() {
 	mg.SerialDeps(
 		Dependency.All,
+		Build.Rs274,
 		mg.F(Build.Cmd, "apiserver"),
 	)
 }
@@ -205,9 +237,12 @@ func (Build) Cmd(cmd string) error {
 	os.Rename("internal/linuxcnc/stub.cpp", ".cache/lstub.ccp")
 	defer os.Rename(".cache/lstub.ccp", "internal/linuxcnc/stub.cpp")
 
+	os.Rename("internal/rs274ngc/rs274ngcinterop/stub.c", ".cache/rs274ngcstub.c")
+	defer os.Rename(".cache/rs274ngcstub.c", "internal/rs274ngc/rs274ngcinterop/stub.c")
+
 	env := map[string]string{
 		"LD_LIBRARY_PATH": os.Getenv("LD_LIBRARY_PATH") + ":" + workDir + "/lib",
-		"CGO_LDFLAGS":     "-Llib -llinuxcncadapter",
+		"CGO_LDFLAGS":     "-Llib -llinuxcncadapter -lrs274",
 	}
 	if err := sh.RunWithV(env, "go", "build", "-v", "-o", "bin/"+cmd, "./cmd/"+cmd+"/main.go"); err != nil {
 		return fmt.Errorf("compiling cmd/%s: %w", cmd, err)

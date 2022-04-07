@@ -1,8 +1,5 @@
 #include <stdbool.h>
 
-#ifndef RS274_H
-#define RS274_H
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -11,7 +8,7 @@ extern "C" {
 typedef void (*ErrorFn)(int interpError, int lastSequenceNumber);
 typedef bool (*AbortFn)();
 typedef void (*MessageFn)(char *comment);
-typedef void (*CommentFn)(char *comment);
+typedef void (*CommentFn)(const char *comment);
 typedef void (*ChangeToolFn)(int pocket);
 
 // Settings functions
@@ -82,6 +79,4 @@ int parseFile(char *file);
 
 #ifdef __cplusplus
 }
-#endif
-
 #endif
